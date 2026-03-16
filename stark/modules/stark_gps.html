@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>STARK GPS</title>
+<style>
+body{font-family:monospace;background:#000;color:#00aaff;display:flex;align-items:center;
+justify-content:center;height:100vh;margin:0;flex-direction:column;gap:20px}
+#status{font-size:1.4rem;text-align:center}
+#coords{font-size:1rem;color:#00ff88;text-align:center}
+#btn{padding:14px 32px;background:#00aaff;color:#000;border:none;border-radius:8px;
+font-size:1.1rem;font-weight:700;cursor:pointer}
+#btn:hover{background:#00ccff}
+#result{color:#ffaa00;font-size:.9rem;text-align:center;max-width:500px}
+</style>
+</head>
+<body>
+
+<div id="status">⚡ STARK GPS</div>
+<button id="btn" onclick="getLocation()">Get My Real Location</button>
+<div id="coords"></div>
+<div id="result"></div>
+
+<script>
+function getLocation() {
+    document.getElementById('status').innerText = '📡 Getting your GPS...';
+    document.getElementById('btn').disabled = true;
+
+    if (!navigator.geolocation) {
+        document.getElementById('status').innerText = '❌ Browser GPS not supported';
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        function(pos) {
+            var lat = pos.coords.latitude;
+            var lon = pos.coords.longitude;
+            var acc = pos.coords.accuracy;
+
+            document.getElementById('status').innerText = '✅ Got your real GPS!';
+            document.getElementById('coords').innerText =
+                'Lat: ' + lat.toFixed(6) + '\nLon: ' + lon.toFixed(6) +
+                '\nAccuracy: ' + acc.toFixed(0) + ' meters';
+
+            // Save to STARK by calling local Python server
+            fetch('http://localhost:8765/save_location', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({lat: lat, lon: lon, accuracy: acc})
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('result').innerText =
+                    '✅ Saved! City: ' + data.city +
+                    '\nSTARK now knows your real location!';
+                document.getElementById('status').innerText =
+                    '✅ STARK Location Updated — ' + data.city;
+            })
+            .catch(err => {
+                // Server not running — show manual instructions
+                document.getElementById('result').innerHTML =
+                    '<b>Copy these values to config.py:</b><br><br>' +
+                    'GPS_LAT = ' + lat.toFixed(6) + '<br>' +
+                    'GPS_LON = ' + lon.toFixed(6) + '<br>' +
+                    'USER_CITY = "' + '(see below)"<br><br>' +
+                    '<a href="https://nominatim.openstreetmap.org/reverse?lat=' +
+                    lat + '&lon=' + lon + '&format=json" target="_blank" ' +
+                    'style="color:#00aaff">Click here to get your city name</a>';
+            });
+        },
+        function(err) {
+            document.getElementById('status').innerText = '❌ ' + err.message;
+            document.getElementById('result').innerText =
+                'Please allow location access when browser asks.\n' +
+                'Click the lock icon in address bar → Allow Location';
+            document.getElementById('btn').disabled = false;
+        },
+        {enableHighAccuracy: true, timeout: 15000, maximumAge: 0}
+    );
+}
+</script>
+</body>
+</html>
